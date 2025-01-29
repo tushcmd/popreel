@@ -1,0 +1,158 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique
+  username      String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bio           String?
+  avatar        String?
+  onboarded     Boolean   @default(false)
+  
+  // Content preferences (for recommendations)
+  contentPreferences UserContentPreference[]
+  
+  // User's content
+  videos         Video[]
+  comments       Comment[]
+  likes          Like[]
+  favorites      Favorite[]
+  
+  // Following system
+  followers      Follow[]  @relation("following")
+  following      Follow[]  @relation("follower")
+}
+
+model Video {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  videoUrl    String    // Vercel Blob URL
+  thumbnail   String?   // Optional thumbnail URL
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Video metadata
+  duration    Int       // in seconds
+  views       Int       @default(0)
+  
+  // Relations
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  comments    Comment[]
+  likes       Like[]
+  favorites   Favorite[]
+  categories  VideoCategory[]
+  
+  @@index([userId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relations
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  videoId   String
+  video     Video     @relation(fields: [videoId], references: [id])
+  
+  @@index([userId])
+  @@index([videoId])
+}
+
+model Like {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  
+  // Relations
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  videoId   String
+  video     Video     @relation(fields: [videoId], references: [id])
+  
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+model Favorite {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  
+  // Relations
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  videoId   String
+  video     Video     @relation(fields: [videoId], references: [id])
+  
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+model Follow {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  
+  // Relations
+  followerId    String
+  follower      User      @relation("follower", fields: [followerId], references: [id])
+  followingId   String
+  following     User      @relation("following", fields: [followingId], references: [id])
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  
+  // Relations
+  videos      VideoCategory[]
+  userPreferences UserContentPreference[]
+}
+
+model VideoCategory {
+  id         String    @id @default(cuid())
+  
+  // Relations
+  videoId    String
+  video      Video     @relation(fields: [videoId], references: [id])
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id])
+  
+  @@unique([videoId, categoryId])
+  @@index([videoId])
+  @@index([categoryId])
+}
+
+model UserContentPreference {
+  id         String    @id @default(cuid())
+  weight     Float     @default(1.0)  // For recommendation algorithm
+  
+  // Relations
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id])
+  
+  @@unique([userId, categoryId])
+  @@index([userId])
+  @@index([categoryId])
+}
